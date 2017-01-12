@@ -25,34 +25,65 @@ def get_sprint_ids(board_ids, last_sprints_count=1):
     return sprint_ids
 
 
+#def get_story_points(board_id, sprint_id):
+#    print board_id
+#    print sprint_id
+#    json_issues_in_sprint = jira._get_json('rapid/charts/sprintreport?rapidViewId=%s&sprintId=%s' % (board_id, sprint_id), base=jira.AGILE_BASE_URL)
+#
+#    type_issues = [ 'completedIssues', 'incompletedIssues', 'issuesNotCompletedInCurrentSprint', 'issuesCompletedInAnotherSprint', 'puntedIssues']
+#    #type_issues = [ 'completedIssues', 'incompletedIssues', 'puntedIssues']
+#
+#    issues_in_sprint = []
+#
+#    completed_points = 0
+#    total_points = 0
+#    #print '----------------------- ' + str(sprint_id)
+#    #print json_issues_in_sprint['contents']
+#    for t in type_issues:
+#        if t in json_issues_in_sprint['contents']:
+#            #print t
+#            for raw_issues in json_issues_in_sprint['contents'][t]:
+#                try:
+#                    i = jira.issue(raw_issues['key'])
+#                    p = i.fields.customfield_10002
+#                    print raw_issues['key'] + ': ' +  str(p)
+#                    total_points += p
+#                    if t == 'completedIssues' or t == 'issuesCompletedInAnotherSprint':
+#                        completed_points += p
+#                except:
+#                    continue
+#    say_do_map = {'say': total_points,
+#                 'do': completed_points}
+#    print say_do_map
+#    return say_do_map
+
+
 def get_story_points(board_id, sprint_id):
-    json_issues_in_sprint = jira._get_json('rapid/charts/sprintreport?rapidViewId=%s&sprintId=%s' % (board_id, sprint_id), base=jira.AGILE_BASE_URL)
-
-    type_issues = [ 'completedIssues', 'incompletedIssues', 'issuesNotCompletedInCurrentSprint', 'issuesCompletedInAnotherSprint', 'puntedIssues']
-    #type_issues = [ 'completedIssues', 'incompletedIssues', 'puntedIssues']
-
-    issues_in_sprint = []
+    #print board_id
+    #print sprint_id
+    say_do_map = {'say': 0, 'do': 0}
+    try:
+        #json_issues_in_sprint = jira._get_json('', base='http://hercules:8080/rest/agile/1.0/board/%s/sprint/%s/issue' % (board_id, sprint_id))
+        json_issues_in_sprint = jira._get_json('', base='http://hercules:8080/rest/api/2/search?jql=Sprint=%s' % (sprint_id))
+    except:
+        print 'Error retrieving data for sprint %s' % (sprint_id)
+        return say_do_map
 
     completed_points = 0
     total_points = 0
-    #print '----------------------- ' + str(sprint_id)
-    #print json_issues_in_sprint['contents']
-    for t in type_issues:
-        if t in json_issues_in_sprint['contents']:
-            #print t
-            for raw_issues in json_issues_in_sprint['contents'][t]:
-                try:
-                    i = jira.issue(raw_issues['key'])
-                    p = i.fields.customfield_10002
-                    #print raw_issues['key'] + ': ' +  str(p)
-                    total_points += p
-                    if t == 'completedIssues' or t == 'issuesCompletedInAnotherSprint':
-                        completed_points += p
-                except:
-                    continue
-    say_do_map = {'say': total_points,
-                 'do': completed_points}
-    print say_do_map
+    for i in json_issues_in_sprint['issues']:
+        #print i['key'] + ' ' + i['fields']['status']['name']
+        try:
+            total_points += float(i['fields']['customfield_10002'])
+            if i['fields']['status']['name'] == 'Done':
+                completed_points += float(i['fields']['customfield_10002'])
+        except:
+            continue
+            #print 'Invalid points for issue: ' + i['key'] + ': ' + str(i['fields']['customfield_10002'])
+
+    say_do_map['say'] = total_points
+    say_do_map['do'] = completed_points
+    #print say_do_map
     return say_do_map
 
 
@@ -65,10 +96,10 @@ def get_board_map():
 
 cred = load_credentials()
 jira = JIRA('http://hercules:8080',basic_auth=(cred[0], cred[1]))
-#board_ids = [108, 103, 102, 100, 104, 136, 118]
-board_ids = [118]
+board_ids = [108, 103, 102, 100, 104, 136, 118]
+#board_ids = [136]
 board_map = get_board_map()
-sprint_count = 8
+sprint_count = 1
 sprint_ids = get_sprint_ids(board_ids, sprint_count)
 for b in sprint_ids:
     print '\nPoints for board ' + str(board_map[b])
@@ -83,9 +114,6 @@ for b in sprint_ids:
         col.append('%.2f %%' % (float(say_do_map['do'])/float(1 if say_do_map['say'] == 0 else say_do_map['say']) * 100))
         x.add_column('sprint ' + str(i), col)
         i = i - 1
-        #print 'Say: ' + str(say_do_map['say'])
-        #print 'Do: ' + str(say_do_map['do'])
-        #print 'Say/Do: %.2f %%' % (float(say_do_map['do'])/float(1 if say_do_map['say'] == 0 else say_do_map['say']) * 100)
     print x
 
 
